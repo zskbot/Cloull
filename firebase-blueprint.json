@@ -1,0 +1,649 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "Hồ sơ người dùng",
+      "description": "Thông tin tài khoản quản trị DNS và tùy chọn chung của người dùng.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Mã định danh người dùng Firebase Auth.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Tên hiển thị của quản trị viên.",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Địa chỉ email tài khoản Google.",
+          "maxLength": 254
+        },
+        "defaultTtl": {
+          "type": "number",
+          "description": "Thời gian sống TTL mặc định (giây) khi tạo bản ghi mới."
+        },
+        "notifyHealthAlerts": {
+          "type": "boolean",
+          "description": "Bật cảnh báo khi kiểm tra sức khỏe DNS phát hiện lỗi."
+        },
+        "notifyDanglingRecords": {
+          "type": "boolean",
+          "description": "Bật cảnh báo khi phát hiện bản ghi lơ lửng."
+        },
+        "totpEnabled": {
+          "type": "boolean",
+          "description": "Trạng thái kích hoạt xác thực hai yếu tố TOTP."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm tạo hồ sơ (server timestamp)."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm cập nhật gần nhất (server timestamp)."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "defaultTtl",
+        "notifyHealthAlerts",
+        "notifyDanglingRecords",
+        "totpEnabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserTotpSecret": {
+      "title": "Khóa bí mật 2FA TOTP",
+      "description": "Khóa bí mật TOTP tách biệt trong phân hệ bảo mật riêng của người dùng.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Mã chủ sở hữu khớp với uid.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "secret": {
+          "type": "string",
+          "description": "Chuỗi bí mật Base32 chuẩn RFC 6238.",
+          "minLength": 16,
+          "maxLength": 64,
+          "pattern": "^[A-Z2-7]+$"
+        },
+        "verifiedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm xác minh mã OTP thành công."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm cập nhật khóa bảo mật."
+        }
+      },
+      "required": ["ownerId", "secret", "verifiedAt", "updatedAt"]
+    },
+    "Domain": {
+      "title": "Tên miền DNS",
+      "description": "Vùng tên miền riêng được quản lý trong hệ thống.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Mã chủ sở hữu tên miền.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Tên miền chuẩn FQDN viết thường.",
+          "minLength": 3,
+          "maxLength": 253,
+          "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Danh sách thẻ phân loại tối đa 10 thẻ."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Ghi chú vận hành tên miền.",
+          "maxLength": 500
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "pending", "warning"],
+          "description": "Trạng thái cấu hình tên miền."
+        },
+        "recordCount": {
+          "type": "number",
+          "description": "Tổng số bản ghi hiện có trong vùng."
+        },
+        "lastHealthStatus": {
+          "type": "string",
+          "enum": ["unknown", "healthy", "warning", "critical"],
+          "description": "Kết quả kiểm tra sức khỏe DNS gần nhất."
+        },
+        "lastHealthSummary": {
+          "type": "string",
+          "description": "Tóm tắt tình trạng kiểm tra sức khỏe gần nhất.",
+          "maxLength": 300
+        },
+        "lastHealthCheckAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm chạy kiểm tra sức khỏe gần nhất."
+        },
+        "verificationToken": {
+          "type": "string",
+          "description": "Mã TXT xác thực quyền sở hữu tên miền.",
+          "minLength": 12,
+          "maxLength": 64
+        },
+        "verificationStatus": {
+          "type": "string",
+          "enum": ["unverified", "pending", "verified"],
+          "description": "Trạng thái xác thực sở hữu tên miền."
+        },
+        "verifiedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm xác thực sở hữu tên miền thành công."
+        },
+        "pagesProvider": {
+          "type": "string",
+          "enum": ["none", "github", "cloudflare", "vercel", "firebase"],
+          "description": "Nền tảng Pages web đã liên kết."
+        },
+        "pagesTarget": {
+          "type": "string",
+          "description": "Đích cấu hình Pages web (tài khoản github.io, dự án pages.dev, site Firebase...).",
+          "maxLength": 253
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Ngày hết hạn đăng ký tên miền (tùy chọn)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm thêm tên miền."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm cập nhật gần nhất."
+        }
+      },
+      "required": [
+        "ownerId",
+        "name",
+        "tags",
+        "notes",
+        "status",
+        "recordCount",
+        "lastHealthStatus",
+        "lastHealthSummary",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DnsRecord": {
+      "title": "Bản ghi DNS",
+      "description": "Hồ sơ phân giải DNS thuộc một tên miền cụ thể.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Mã chủ sở hữu bản ghi.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "domainId": {
+          "type": "string",
+          "description": "Mã định danh tên miền cha.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "A",
+            "AAAA",
+            "CNAME",
+            "MX",
+            "TXT",
+            "NS",
+            "PTR",
+            "SRV",
+            "CAA",
+            "SPF",
+            "ALIAS",
+            "DS",
+            "HINFO",
+            "HTTPS",
+            "NAPTR",
+            "RP",
+            "SSHFP",
+            "SVCB",
+            "TLSA"
+          ],
+          "description": "Loại bản ghi DNS chuẩn hoặc nâng cao."
+        },
+        "host": {
+          "type": "string",
+          "description": "Tên máy chủ hoặc bản ghi con (@, www, mail, _dmarc...).",
+          "minLength": 1,
+          "maxLength": 253
+        },
+        "value": {
+          "type": "string",
+          "description": "Giá trị đích hoặc nội dung bản ghi.",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "ttl": {
+          "type": "number",
+          "description": "Thời gian lưu đệm TTL tính bằng giây (60 - 604800)."
+        },
+        "priority": {
+          "type": "number",
+          "description": "Mức ưu tiên (dùng cho MX, SRV, HTTPS, SVCB, NAPTR)."
+        },
+        "weight": {
+          "type": "number",
+          "description": "Trọng số phân tải (dùng cho SRV)."
+        },
+        "port": {
+          "type": "number",
+          "description": "Cổng dịch vụ (dùng cho SRV)."
+        },
+        "caaFlags": {
+          "type": "number",
+          "description": "Cờ CAA (0 hoặc 128)."
+        },
+        "caaTag": {
+          "type": "string",
+          "enum": ["issue", "issuewild", "iodef"],
+          "description": "Thẻ thuộc tính CAA."
+        },
+        "dsKeyTag": {
+          "type": "number",
+          "description": "Mã khóa Key Tag cho bản ghi DS."
+        },
+        "dsAlgorithm": {
+          "type": "number",
+          "description": "Mã thuật toán DNSSEC cho bản ghi DS."
+        },
+        "dsDigestType": {
+          "type": "number",
+          "description": "Loại hàm băm Digest Type cho bản ghi DS."
+        },
+        "sshfpAlgorithm": {
+          "type": "number",
+          "description": "Thuật toán khóa SSHFP."
+        },
+        "sshfpFingerprintType": {
+          "type": "number",
+          "description": "Loại dấu vân tay SSHFP."
+        },
+        "tlsaUsage": {
+          "type": "number",
+          "description": "Chế độ sử dụng chứng chỉ TLSA (0-3)."
+        },
+        "tlsaSelector": {
+          "type": "number",
+          "description": "Bộ chọn TLSA (0-1)."
+        },
+        "tlsaMatchingType": {
+          "type": "number",
+          "description": "Kiểu đối khớp TLSA (0-2)."
+        },
+        "tags": {
+          "type": "array",
+          "description": "Danh sách thẻ gắn cho bản ghi (tối đa 8 thẻ)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Ghi chú bản ghi.",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm tạo bản ghi."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm cập nhật bản ghi."
+        }
+      },
+      "required": [
+        "ownerId",
+        "domainId",
+        "type",
+        "host",
+        "value",
+        "ttl",
+        "tags",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WebForward": {
+      "title": "Quy tắc chuyển tiếp Web",
+      "description": "Cấu hình chuyển hướng HTTP 301/302 cho tên miền hoặc tên miền phụ.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Mã chủ sở hữu quy tắc.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "domainId": {
+          "type": "string",
+          "description": "Mã tên miền cha.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sourceHost": {
+          "type": "string",
+          "description": "Tên miền nguồn (@, www, go...).",
+          "minLength": 1,
+          "maxLength": 253
+        },
+        "targetUrl": {
+          "type": "string",
+          "description": "Địa chỉ URL đích bắt đầu bằng http:// hoặc https://.",
+          "minLength": 8,
+          "maxLength": 1024,
+          "pattern": "^https?://.+"
+        },
+        "redirectType": {
+          "type": "string",
+          "enum": ["301", "302"],
+          "description": "Mã chuyển hướng HTTP (301 vĩnh viễn hoặc 302 tạm thời)."
+        },
+        "preservePath": {
+          "type": "boolean",
+          "description": "Giữ nguyên đường dẫn và tham số truy vấn khi chuyển tiếp."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Trạng thái bật/tắt quy tắc."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm tạo quy tắc."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm cập nhật quy tắc."
+        }
+      },
+      "required": [
+        "ownerId",
+        "domainId",
+        "sourceHost",
+        "targetUrl",
+        "redirectType",
+        "preservePath",
+        "enabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AuditLog": {
+      "title": "Nhật ký kiểm toán thay đổi DNS",
+      "description": "Bản ghi lịch sử bất biến lưu mọi thao tác thay đổi bản ghi, chuyển tiếp và xác thực tên miền.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Mã chủ sở hữu tên miền.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "domainId": {
+          "type": "string",
+          "description": "Mã tên miền phát sinh sự kiện.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "actorEmail": {
+          "type": "string",
+          "description": "Email người thực hiện thao tác.",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "domain_create",
+            "record_create",
+            "record_update",
+            "record_delete",
+            "record_duplicate",
+            "bulk_import",
+            "forward_create",
+            "forward_toggle",
+            "forward_delete",
+            "domain_verify_init",
+            "domain_verified",
+            "pages_provision",
+            "github_deploy"
+          ],
+          "description": "Loại hành động kiểm toán."
+        },
+        "targetType": {
+          "type": "string",
+          "enum": ["record", "bulk", "forward", "domain", "pages"],
+          "description": "Nhóm đối tượng bị tác động."
+        },
+        "targetLabel": {
+          "type": "string",
+          "description": "Nhãn ngắn nhận diện đối tượng thay đổi.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "summary": {
+          "type": "string",
+          "description": "Mô tả chi tiết thao tác bằng tiếng Việt.",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "beforeSummary": {
+          "type": "string",
+          "description": "Tóm tắt giá trị trước khi thay đổi.",
+          "maxLength": 400
+        },
+        "afterSummary": {
+          "type": "string",
+          "description": "Tóm tắt giá trị sau khi thay đổi.",
+          "maxLength": 400
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm ghi nhật ký (server timestamp)."
+        }
+      },
+      "required": [
+        "ownerId",
+        "domainId",
+        "actorEmail",
+        "action",
+        "targetType",
+        "targetLabel",
+        "summary",
+        "createdAt"
+      ]
+    },
+    "PagesDeployment": {
+      "title": "Bản triển khai GitHub Pages & Live Review",
+      "description": "Hồ sơ lưu thông tin liên kết kho lưu trữ GitHub, trạng thái Pages và URL xem trước trực tiếp (Live Review).",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Mã chủ sở hữu tên miền.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "domainId": {
+          "type": "string",
+          "description": "Mã định danh tên miền cha.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "repoFullName": {
+          "type": "string",
+          "description": "Tên đầy đủ kho lưu trữ GitHub dạng owner/repo.",
+          "minLength": 3,
+          "maxLength": 140,
+          "pattern": "^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$"
+        },
+        "branch": {
+          "type": "string",
+          "description": "Nhánh mã nguồn được triển khai.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sourceDir": {
+          "type": "string",
+          "description": "Thư mục tĩnh dùng để phục vụ Pages và Live Review.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "commitSha": {
+          "type": "string",
+          "description": "Mã commit SHA được chốt tại thời điểm triển khai.",
+          "minLength": 4,
+          "maxLength": 64
+        },
+        "liveReviewUrl": {
+          "type": "string",
+          "description": "URL xem trước trực tiếp trên máy chủ ứng dụng.",
+          "minLength": 8,
+          "maxLength": 1024,
+          "pattern": "^https?://.+"
+        },
+        "githubPagesUrl": {
+          "type": "string",
+          "description": "URL GitHub Pages của kho lưu trữ.",
+          "minLength": 8,
+          "maxLength": 1024,
+          "pattern": "^https?://.+"
+        },
+        "customDomainUrl": {
+          "type": "string",
+          "description": "URL tên miền riêng gắn với bản triển khai.",
+          "minLength": 8,
+          "maxLength": 1024,
+          "pattern": "^https?://.+"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["live", "configured", "failed"],
+          "description": "Trạng thái hiện tại của bản triển khai."
+        },
+        "pagesApiStatus": {
+          "type": "string",
+          "description": "Thông báo kết quả gọi GitHub Pages API.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm triển khai (server timestamp)."
+        }
+      },
+      "required": [
+        "ownerId",
+        "domainId",
+        "repoFullName",
+        "branch",
+        "sourceDir",
+        "commitSha",
+        "liveReviewUrl",
+        "githubPagesUrl",
+        "customDomainUrl",
+        "status",
+        "pagesApiStatus",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Hồ sơ và tùy chọn quản trị của từng người dùng."
+    },
+    "/users/{userId}/security/{securityId}": {
+      "schema": {
+        "$ref": "#/entities/UserTotpSecret"
+      },
+      "description": "Kho lưu trữ khóa bí mật 2FA TOTP tách riêng cho chủ sở hữu."
+    },
+    "/domains/{domainId}": {
+      "schema": {
+        "$ref": "#/entities/Domain"
+      },
+      "description": "Danh sách vùng tên miền DNS thuộc quyền sở hữu của người dùng."
+    },
+    "/domains/{domainId}/records/{recordId}": {
+      "schema": {
+        "$ref": "#/entities/DnsRecord"
+      },
+      "description": "Các bản ghi DNS thuộc từng tên miền."
+    },
+    "/domains/{domainId}/forwards/{forwardId}": {
+      "schema": {
+        "$ref": "#/entities/WebForward"
+      },
+      "description": "Các quy tắc chuyển tiếp Web thuộc từng tên miền."
+    },
+    "/domains/{domainId}/auditLogs/{logId}": {
+      "schema": {
+        "$ref": "#/entities/AuditLog"
+      },
+      "description": "Nhật ký kiểm toán bất biến ghi nhận lịch sử thay đổi trong từng tên miền."
+    },
+    "/domains/{domainId}/deployments/{deploymentId}": {
+      "schema": {
+        "$ref": "#/entities/PagesDeployment"
+      },
+      "description": "Lịch sử triển khai GitHub Pages và liên kết Live Review cho từng tên miền."
+    }
+  }
+}

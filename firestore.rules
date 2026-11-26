@@ -1,0 +1,661 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Luoi an toan mac dinh tu choi tat ca
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Ham tien ich xac thuc toan cuc
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTags(tags, maxCount) {
+      return tags is list &&
+        tags.size() <= maxCount &&
+        (tags.size() == 0 || (tags[0] is string && tags[0].size() >= 1 && tags[0].size() <= 32));
+    }
+
+    function isDomainOwner(domainId) {
+      return exists(/databases/$(database)/documents/domains/$(domainId)) &&
+        get(/databases/$(database)/documents/domains/$(domainId)).data.ownerId == request.auth.uid;
+    }
+
+    // Kiem tra du lieu ho so nguoi dung
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid',
+          'displayName',
+          'email',
+          'defaultTtl',
+          'notifyHealthAlerts',
+          'notifyDanglingRecords',
+          'totpEnabled',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'email',
+          'defaultTtl',
+          'notifyHealthAlerts',
+          'notifyDanglingRecords',
+          'totpEnabled',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.uid is string &&
+        data.uid == userId &&
+        isValidId(data.uid) &&
+        data.displayName is string &&
+        data.displayName.size() >= 1 &&
+        data.displayName.size() <= 100 &&
+        data.email is string &&
+        data.email.size() >= 3 &&
+        data.email.size() <= 254 &&
+        data.defaultTtl is int &&
+        data.defaultTtl >= 60 &&
+        data.defaultTtl <= 604800 &&
+        data.notifyHealthAlerts is bool &&
+        data.notifyDanglingRecords is bool &&
+        data.totpEnabled is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Kiem tra khoa bi mat TOTP
+    function isValidTotpSecret(data, userId) {
+      return data.keys().hasAll(['ownerId', 'secret', 'verifiedAt', 'updatedAt']) &&
+        data.keys().hasOnly(['ownerId', 'secret', 'verifiedAt', 'updatedAt']) &&
+        data.ownerId is string &&
+        data.ownerId == userId &&
+        isValidId(data.ownerId) &&
+        data.secret is string &&
+        data.secret.size() >= 16 &&
+        data.secret.size() <= 64 &&
+        data.secret.matches('^[A-Z2-7]+$') &&
+        data.verifiedAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Kiem tra ten mien chuan FQDN
+    function isValidDomainName(name) {
+      return name is string &&
+        name.size() >= 3 &&
+        name.size() <= 253 &&
+        name.matches('^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$');
+    }
+
+    // Kiem tra du lieu ten mien
+    function isValidDomain(data) {
+      return data.keys().hasAll([
+          'ownerId',
+          'name',
+          'tags',
+          'notes',
+          'status',
+          'recordCount',
+          'lastHealthStatus',
+          'lastHealthSummary',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'name',
+          'tags',
+          'notes',
+          'status',
+          'recordCount',
+          'lastHealthStatus',
+          'lastHealthSummary',
+          'lastHealthCheckAt',
+          'verificationToken',
+          'verificationStatus',
+          'verifiedAt',
+          'pagesProvider',
+          'pagesTarget',
+          'expiresAt',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.ownerId is string &&
+        data.ownerId == request.auth.uid &&
+        isValidId(data.ownerId) &&
+        isValidDomainName(data.name) &&
+        isValidTags(data.tags, 10) &&
+        data.notes is string &&
+        data.notes.size() <= 500 &&
+        data.status in ['active', 'pending', 'warning'] &&
+        data.recordCount is int &&
+        data.recordCount >= 0 &&
+        data.recordCount <= 10000 &&
+        data.lastHealthStatus in ['unknown', 'healthy', 'warning', 'critical'] &&
+        data.lastHealthSummary is string &&
+        data.lastHealthSummary.size() <= 300 &&
+        (!('lastHealthCheckAt' in data) || data.lastHealthCheckAt is timestamp) &&
+        (!('verificationToken' in data) || (data.verificationToken is string && data.verificationToken.size() >= 12 && data.verificationToken.size() <= 64)) &&
+        (!('verificationStatus' in data) || data.verificationStatus in ['unverified', 'pending', 'verified']) &&
+        (!('verifiedAt' in data) || data.verifiedAt is timestamp) &&
+        (!('pagesProvider' in data) || data.pagesProvider in ['none', 'github', 'cloudflare', 'vercel', 'firebase']) &&
+        (!('pagesTarget' in data) || (data.pagesTarget is string && data.pagesTarget.size() <= 253)) &&
+        (!('expiresAt' in data) || data.expiresAt is timestamp) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidRecordType(recordType) {
+      return recordType in [
+        'A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'PTR', 'SRV', 'CAA', 'SPF',
+        'ALIAS', 'DS', 'HINFO', 'HTTPS', 'NAPTR', 'RP', 'SSHFP', 'SVCB', 'TLSA'
+      ];
+    }
+
+    // Kiem tra du lieu ban ghi DNS
+    function isValidDnsRecord(data, domainId) {
+      return data.keys().hasAll([
+          'ownerId',
+          'domainId',
+          'type',
+          'host',
+          'value',
+          'ttl',
+          'tags',
+          'notes',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'domainId',
+          'type',
+          'host',
+          'value',
+          'ttl',
+          'priority',
+          'weight',
+          'port',
+          'caaFlags',
+          'caaTag',
+          'dsKeyTag',
+          'dsAlgorithm',
+          'dsDigestType',
+          'sshfpAlgorithm',
+          'sshfpFingerprintType',
+          'tlsaUsage',
+          'tlsaSelector',
+          'tlsaMatchingType',
+          'tags',
+          'notes',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.ownerId is string &&
+        data.ownerId == request.auth.uid &&
+        isValidId(data.ownerId) &&
+        data.domainId is string &&
+        data.domainId == domainId &&
+        isValidId(data.domainId) &&
+        isValidRecordType(data.type) &&
+        data.host is string &&
+        data.host.size() >= 1 &&
+        data.host.size() <= 253 &&
+        data.value is string &&
+        data.value.size() >= 1 &&
+        data.value.size() <= 2048 &&
+        data.ttl is int &&
+        data.ttl >= 60 &&
+        data.ttl <= 604800 &&
+        (!('priority' in data) || (data.priority is int && data.priority >= 0 && data.priority <= 65535)) &&
+        (!('weight' in data) || (data.weight is int && data.weight >= 0 && data.weight <= 65535)) &&
+        (!('port' in data) || (data.port is int && data.port >= 0 && data.port <= 65535)) &&
+        (!('caaFlags' in data) || (data.caaFlags is int && data.caaFlags >= 0 && data.caaFlags <= 255)) &&
+        (!('caaTag' in data) || data.caaTag in ['issue', 'issuewild', 'iodef']) &&
+        (!('dsKeyTag' in data) || (data.dsKeyTag is int && data.dsKeyTag >= 0 && data.dsKeyTag <= 65535)) &&
+        (!('dsAlgorithm' in data) || (data.dsAlgorithm is int && data.dsAlgorithm >= 1 && data.dsAlgorithm <= 255)) &&
+        (!('dsDigestType' in data) || (data.dsDigestType is int && data.dsDigestType >= 1 && data.dsDigestType <= 4)) &&
+        (!('sshfpAlgorithm' in data) || (data.sshfpAlgorithm is int && data.sshfpAlgorithm >= 1 && data.sshfpAlgorithm <= 6)) &&
+        (!('sshfpFingerprintType' in data) || (data.sshfpFingerprintType is int && data.sshfpFingerprintType >= 1 && data.sshfpFingerprintType <= 2)) &&
+        (!('tlsaUsage' in data) || (data.tlsaUsage is int && data.tlsaUsage >= 0 && data.tlsaUsage <= 3)) &&
+        (!('tlsaSelector' in data) || (data.tlsaSelector is int && data.tlsaSelector >= 0 && data.tlsaSelector <= 1)) &&
+        (!('tlsaMatchingType' in data) || (data.tlsaMatchingType is int && data.tlsaMatchingType >= 0 && data.tlsaMatchingType <= 2)) &&
+        isValidTags(data.tags, 8) &&
+        data.notes is string &&
+        data.notes.size() <= 300 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Kiem tra du lieu quy tac chuyen tiep Web
+    function isValidWebForward(data, domainId) {
+      return data.keys().hasAll([
+          'ownerId',
+          'domainId',
+          'sourceHost',
+          'targetUrl',
+          'redirectType',
+          'preservePath',
+          'enabled',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'domainId',
+          'sourceHost',
+          'targetUrl',
+          'redirectType',
+          'preservePath',
+          'enabled',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.ownerId is string &&
+        data.ownerId == request.auth.uid &&
+        isValidId(data.ownerId) &&
+        data.domainId is string &&
+        data.domainId == domainId &&
+        isValidId(data.domainId) &&
+        data.sourceHost is string &&
+        data.sourceHost.size() >= 1 &&
+        data.sourceHost.size() <= 253 &&
+        data.targetUrl is string &&
+        data.targetUrl.size() >= 8 &&
+        data.targetUrl.size() <= 1024 &&
+        data.targetUrl.matches('^https?://.+') &&
+        data.redirectType in ['301', '302'] &&
+        data.preservePath is bool &&
+        data.enabled is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Kiem tra du lieu nhat ky kiem toan (Audit Log)
+    function isValidAuditLog(data, domainId) {
+      return data.keys().hasAll([
+          'ownerId',
+          'domainId',
+          'actorEmail',
+          'action',
+          'targetType',
+          'targetLabel',
+          'summary',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'domainId',
+          'actorEmail',
+          'action',
+          'targetType',
+          'targetLabel',
+          'summary',
+          'beforeSummary',
+          'afterSummary',
+          'createdAt'
+        ]) &&
+        data.ownerId is string &&
+        data.ownerId == request.auth.uid &&
+        isValidId(data.ownerId) &&
+        data.domainId is string &&
+        data.domainId == domainId &&
+        isValidId(data.domainId) &&
+        data.actorEmail is string &&
+        data.actorEmail.size() >= 3 &&
+        data.actorEmail.size() <= 254 &&
+        data.action in [
+          'domain_create',
+          'record_create',
+          'record_update',
+          'record_delete',
+          'record_duplicate',
+          'bulk_import',
+          'forward_create',
+          'forward_toggle',
+          'forward_delete',
+          'domain_verify_init',
+          'domain_verified',
+          'pages_provision',
+          'github_deploy'
+        ] &&
+        data.targetType in ['record', 'bulk', 'forward', 'domain', 'pages'] &&
+        data.targetLabel is string &&
+        data.targetLabel.size() >= 1 &&
+        data.targetLabel.size() <= 120 &&
+        data.summary is string &&
+        data.summary.size() >= 1 &&
+        data.summary.size() <= 400 &&
+        (!('beforeSummary' in data) || (data.beforeSummary is string && data.beforeSummary.size() <= 400)) &&
+        (!('afterSummary' in data) || (data.afterSummary is string && data.afterSummary.size() <= 400)) &&
+        data.createdAt is timestamp;
+    }
+
+    // Kiem tra du lieu trien khai GitHub Pages & Live Review
+    function isValidPagesDeployment(data, domainId) {
+      return data.keys().hasAll([
+          'ownerId',
+          'domainId',
+          'repoFullName',
+          'branch',
+          'sourceDir',
+          'commitSha',
+          'liveReviewUrl',
+          'githubPagesUrl',
+          'customDomainUrl',
+          'status',
+          'pagesApiStatus',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'domainId',
+          'repoFullName',
+          'branch',
+          'sourceDir',
+          'commitSha',
+          'liveReviewUrl',
+          'githubPagesUrl',
+          'customDomainUrl',
+          'status',
+          'pagesApiStatus',
+          'createdAt'
+        ]) &&
+        data.ownerId is string &&
+        data.ownerId == request.auth.uid &&
+        isValidId(data.ownerId) &&
+        data.domainId is string &&
+        data.domainId == domainId &&
+        isValidId(data.domainId) &&
+        data.repoFullName is string &&
+        data.repoFullName.size() >= 3 &&
+        data.repoFullName.size() <= 140 &&
+        data.repoFullName.matches('^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$') &&
+        data.branch is string &&
+        data.branch.size() >= 1 &&
+        data.branch.size() <= 120 &&
+        data.sourceDir is string &&
+        data.sourceDir.size() >= 1 &&
+        data.sourceDir.size() <= 120 &&
+        data.commitSha is string &&
+        data.commitSha.size() >= 4 &&
+        data.commitSha.size() <= 64 &&
+        data.liveReviewUrl is string &&
+        data.liveReviewUrl.size() >= 8 &&
+        data.liveReviewUrl.size() <= 1024 &&
+        data.liveReviewUrl.matches('^https?://.+') &&
+        data.githubPagesUrl is string &&
+        data.githubPagesUrl.size() >= 8 &&
+        data.githubPagesUrl.size() <= 1024 &&
+        data.githubPagesUrl.matches('^https?://.+') &&
+        data.customDomainUrl is string &&
+        data.customDomainUrl.size() >= 8 &&
+        data.customDomainUrl.size() <= 1024 &&
+        data.customDomainUrl.matches('^https?://.+') &&
+        data.status in ['live', 'configured', 'failed'] &&
+        data.pagesApiStatus is string &&
+        data.pagesApiStatus.size() >= 1 &&
+        data.pagesApiStatus.size() <= 200 &&
+        data.createdAt is timestamp;
+    }
+
+    // Ho so nguoi dung
+    match /users/{userId} {
+      allow get: if isVerifiedUser() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if false;
+      allow create: if isVerifiedUser() &&
+        isValidId(userId) &&
+        request.auth.uid == userId &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(userId) &&
+        request.auth.uid == userId &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName',
+          'email',
+          'defaultTtl',
+          'notifyHealthAlerts',
+          'notifyDanglingRecords',
+          'totpEnabled',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+
+      // Khoa bao mat 2FA TOTP tach biet
+      match /security/{securityId} {
+        allow get: if isVerifiedUser() && isValidId(userId) && securityId == 'totp' && request.auth.uid == userId;
+        allow list: if false;
+        allow create: if isVerifiedUser() &&
+          isValidId(userId) &&
+          securityId == 'totp' &&
+          request.auth.uid == userId &&
+          isValidTotpSecret(incoming(), userId) &&
+          incoming().verifiedAt == request.time &&
+          incoming().updatedAt == request.time;
+        allow update: if isVerifiedUser() &&
+          isValidId(userId) &&
+          securityId == 'totp' &&
+          request.auth.uid == userId &&
+          isValidTotpSecret(incoming(), userId) &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['secret', 'verifiedAt', 'updatedAt']);
+        allow delete: if isVerifiedUser() && isValidId(userId) && securityId == 'totp' && request.auth.uid == userId;
+      }
+    }
+
+    // Quan ly ten mien va tai nguyen con
+    match /domains/{domainId} {
+      allow get: if isVerifiedUser() && isValidId(domainId) && existing().ownerId == request.auth.uid;
+      allow list: if isVerifiedUser() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() &&
+        isValidId(domainId) &&
+        isValidDomain(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(domainId) &&
+        existing().ownerId == request.auth.uid &&
+        isValidDomain(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().name == existing().name &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['tags', 'notes', 'status', 'expiresAt', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['recordCount', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'lastHealthStatus',
+            'lastHealthSummary',
+            'lastHealthCheckAt',
+            'status',
+            'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'verificationToken',
+            'verificationStatus',
+            'updatedAt'
+          ]) ||
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'verificationStatus',
+              'verifiedAt',
+              'status',
+              'updatedAt'
+            ]) &&
+            incoming().verifiedAt == request.time
+          ) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'pagesProvider',
+            'pagesTarget',
+            'recordCount',
+            'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'pagesProvider',
+            'pagesTarget',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isVerifiedUser() && isValidId(domainId) && existing().ownerId == request.auth.uid;
+
+      // Ban ghi DNS thuoc ten mien
+      match /records/{recordId} {
+        allow get: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(recordId) &&
+          existing().ownerId == request.auth.uid &&
+          isDomainOwner(domainId);
+        allow list: if isVerifiedUser() && resource.data.ownerId == request.auth.uid;
+        allow create: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(recordId) &&
+          isValidDnsRecord(incoming(), domainId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          isDomainOwner(domainId);
+        allow update: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(recordId) &&
+          existing().ownerId == request.auth.uid &&
+          isValidDnsRecord(incoming(), domainId) &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().domainId == existing().domainId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'type',
+            'host',
+            'value',
+            'ttl',
+            'priority',
+            'weight',
+            'port',
+            'caaFlags',
+            'caaTag',
+            'dsKeyTag',
+            'dsAlgorithm',
+            'dsDigestType',
+            'sshfpAlgorithm',
+            'sshfpFingerprintType',
+            'tlsaUsage',
+            'tlsaSelector',
+            'tlsaMatchingType',
+            'tags',
+            'notes',
+            'updatedAt'
+          ]) &&
+          isDomainOwner(domainId);
+        allow delete: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(recordId) &&
+          existing().ownerId == request.auth.uid &&
+          isDomainOwner(domainId);
+      }
+
+      // Quy tac chuyen tiep Web
+      match /forwards/{forwardId} {
+        allow get: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(forwardId) &&
+          existing().ownerId == request.auth.uid &&
+          isDomainOwner(domainId);
+        allow list: if isVerifiedUser() && resource.data.ownerId == request.auth.uid;
+        allow create: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(forwardId) &&
+          isValidWebForward(incoming(), domainId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          isDomainOwner(domainId);
+        allow update: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(forwardId) &&
+          existing().ownerId == request.auth.uid &&
+          isValidWebForward(incoming(), domainId) &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().domainId == existing().domainId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'sourceHost',
+            'targetUrl',
+            'redirectType',
+            'preservePath',
+            'enabled',
+            'updatedAt'
+          ]) &&
+          isDomainOwner(domainId);
+        allow delete: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(forwardId) &&
+          existing().ownerId == request.auth.uid &&
+          isDomainOwner(domainId);
+      }
+
+      // Nhat ky kiem toan thay doi ban ghi & xac thuc (bat bien: chi tao & doc)
+      match /auditLogs/{logId} {
+        allow get: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(logId) &&
+          existing().ownerId == request.auth.uid &&
+          isDomainOwner(domainId);
+        allow list: if isVerifiedUser() && resource.data.ownerId == request.auth.uid;
+        allow create: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(logId) &&
+          isValidAuditLog(incoming(), domainId) &&
+          incoming().createdAt == request.time &&
+          isDomainOwner(domainId);
+        allow update: if false;
+        allow delete: if false;
+      }
+
+      // Lich su trien khai GitHub Pages & URL Live Review
+      match /deployments/{deploymentId} {
+        allow get: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(deploymentId) &&
+          existing().ownerId == request.auth.uid &&
+          isDomainOwner(domainId);
+        allow list: if isVerifiedUser() && resource.data.ownerId == request.auth.uid;
+        allow create: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(deploymentId) &&
+          isValidPagesDeployment(incoming(), domainId) &&
+          incoming().createdAt == request.time &&
+          isDomainOwner(domainId);
+        allow update: if false;
+        allow delete: if isVerifiedUser() &&
+          isValidId(domainId) &&
+          isValidId(deploymentId) &&
+          existing().ownerId == request.auth.uid &&
+          isDomainOwner(domainId);
+      }
+    }
+  }
+}

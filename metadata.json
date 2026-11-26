@@ -1,0 +1,6 @@
+{
+  "name": "Trạm Điều Khiển DNS",
+  "description": "Hệ thống quản lý tên miền riêng, bản ghi DNS, nhập xuất tệp vùng BIND và kiểm tra phân giải thực tế.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
