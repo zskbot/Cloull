@@ -319,7 +319,7 @@ function MainWorkspace() {
 }
 
 export default function App() {
-  const isDashboard = window.location.pathname.replace(/\\/+$/, '') === '/dashboard';
+  const isDashboard = window.location.pathname.replace(/\/+$/, '') === '/dashboard';
 
   return (
     <ErrorBoundary>
