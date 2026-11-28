@@ -5,6 +5,7 @@ import { DomainDetailView } from './components/DomainDetailView';
 import { DomainsListView } from './components/DomainsListView';
 import { DnsLookupView } from './components/DnsLookupView';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { HomePage } from './components/HomePage';
 import { GlobalAuditView } from './components/GlobalAuditView';
 import { LoginScreen } from './components/LoginScreen';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -318,9 +319,11 @@ function MainWorkspace() {
 }
 
 export default function App() {
+  const isDashboard = window.location.pathname.replace(/\\/+$/, '') === '/dashboard';
+
   return (
     <ErrorBoundary>
-      <MainWorkspace />
+      {isDashboard ? <MainWorkspace /> : <HomePage />}
     </ErrorBoundary>
   );
 }
