@@ -1,107 +1,147 @@
-import { useState } from 'react';
-import { signInWithPopup } from 'firebase/auth';
+import { useEffect, useState } from 'react';
+import {
+  getRedirectResult,
+  signInWithPopup,
+  signInWithRedirect,
+  type AuthError,
+} from 'firebase/auth';
 import { Globe, ShieldCheck, Activity, FileSpreadsheet } from 'lucide-react';
 import { auth, googleProvider } from '../lib/firebase';
+
+function getAuthErrorMessage(error: unknown): string {
+  const code = (error as AuthError | undefined)?.code || '';
+  switch (code) {
+    case 'auth/unauthorized-domain':
+      return 'Tên miền hiện tại chưa được cho phép trong Firebase Authentication. Hãy thêm hostname của trang Preview vào mục Authorized domains.';
+    case 'auth/operation-not-allowed':
+      return 'Đăng nhập Google chưa được bật trong Firebase Authentication.';
+    case 'auth/popup-closed-by-user':
+      return 'Cửa sổ đăng nhập đã bị đóng trước khi hoàn tất.';
+    case 'auth/popup-blocked':
+      return 'Trình duyệt chặn cửa sổ bật lên. Hệ thống sẽ chuyển sang đăng nhập chuyển hướng.';
+    case 'auth/network-request-failed':
+      return 'Không kết nối được máy chủ xác thực. Kiểm tra mạng rồi thử lại.';
+    case 'auth/account-exists-with-different-credential':
+      return 'Email này đã được đăng ký bằng phương thức xác thực khác.';
+    case 'auth/web-storage-unsupported':
+      return 'Trình duyệt đang chặn bộ nhớ phiên cần thiết cho đăng nhập. Hãy bật cookie và website data.';
+    default:
+      return error instanceof Error ? error.message : 'Không thể đăng nhập bằng Google.';
+  }
+}
 
 export function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    void getRedirectResult(auth).catch((redirectError: unknown) => {
+      if (active) setError(getAuthErrorMessage(redirectError));
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError(null);
+    const isAppleMobile =
+      /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Không thể đăng nhập bằng Google.';
-      if (msg.includes('popup-closed-by-user')) {
-        setError('Bạn đã đóng cửa sổ đăng nhập trước khi hoàn tất.');
-      } else if (msg.includes('popup-blocked')) {
-        setError('Trình duyệt đang chặn cửa sổ bật lên. Vui lòng cho phép popup và thử lại.');
-      } else {
-        setError(`Đăng nhập thất bại: ${msg}`);
+      if (isAppleMobile) {
+        await signInWithRedirect(auth, googleProvider);
+        return;
       }
-    } finally {
+
+      try {
+        await signInWithPopup(auth, googleProvider);
+      } catch (popupError) {
+        const code = (popupError as AuthError | undefined)?.code;
+        if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        }
+        throw popupError;
+      }
+    } catch (signInError) {
+      setError(getAuthErrorMessage(signInError));
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[100dvh] bg-slate-50 flex flex-col justify-between">
+    <div className="min-h-[100dvh] bg-slate-50 text-slate-100 flex flex-col justify-between">
       <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 sm:py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
           <span className="text-base sm:text-lg font-bold tracking-tight text-slate-900 font-display whitespace-nowrap shrink-0">
-            Trạm Điều Khiển DNS
+            CLOULL <span className="text-blue-400">/</span> DNS CONTROL
           </span>
           <span className="hidden sm:inline text-xs text-slate-500 whitespace-nowrap shrink-0">
-            Quản trị tên miền riêng · Lưu trữ Firebase
+            Quản trị DNS · Firebase secured
           </span>
         </div>
       </header>
 
       <main className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 sm:py-12">
         <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8 items-stretch">
-          <section className="lg:col-span-7 bg-white border border-slate-200 rounded-lg p-5 sm:p-8 flex flex-col justify-between space-y-6 sm:space-y-8">
+          <section className="lg:col-span-7 bg-white border border-slate-200 p-5 sm:p-8 flex flex-col justify-between space-y-6 sm:space-y-8">
             <div className="space-y-3 sm:space-y-4">
-              <p className="text-xs font-medium text-blue-700">Nền tảng quản trị vùng DNS</p>
+              <p className="text-xs font-mono uppercase tracking-[0.18em] text-blue-400">DNS MANAGEMENT PLATFORM</p>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight leading-tight">
-                Kiểm soát toàn bộ bản ghi DNS cho tên miền riêng trên một giao diện tập trung
+                Kiểm soát toàn bộ bản ghi DNS trên một giao diện tập trung.
               </h1>
-              <p className="text-sm text-slate-600 leading-relaxed max-w-xl">
-                Quản lý 19 loại bản ghi chuẩn và nâng cao, nhập xuất tệp vùng BIND/CSV, kiểm tra phân giải thực tế ngoài Internet và phát hiện sớm bản ghi lơ lửng.
+              <p className="text-sm text-slate-400 leading-relaxed max-w-xl">
+                Quản lý vùng DNS, nhập xuất BIND/CSV, kiểm tra phân giải Internet và theo dõi thay đổi trong một bảng điều khiển bảo mật.
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6 pt-5 sm:pt-6 border-t border-slate-200">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 text-slate-900 font-medium text-sm">
-                  <Globe className="w-4 h-4 text-blue-700 shrink-0" />
+                  <Globe className="w-4 h-4 text-blue-400 shrink-0" />
                   <span>19 loại bản ghi DNS</span>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Đầy đủ A, AAAA, CNAME, MX, TXT, SRV, CAA, ALIAS, DS, TLSA, SSHFP, HTTPS và SVCB.
-                </p>
+                <p className="text-xs text-slate-500 leading-relaxed">Hỗ trợ A, AAAA, CNAME, MX, TXT, SRV, CAA, DS, TLSA, HTTPS và SVCB.</p>
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 text-slate-900 font-medium text-sm">
-                  <Activity className="w-4 h-4 text-blue-700 shrink-0" />
-                  <span>Kiểm tra phân giải thực tế</span>
+                  <Activity className="w-4 h-4 text-blue-400 shrink-0" />
+                  <span>Kiểm tra phân giải</span>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Đối chiếu NS, SOA và bản ghi trực tiếp với hệ thống DNS công cộng, phát hiện bản ghi lơ lửng.
-                </p>
+                <p className="text-xs text-slate-500 leading-relaxed">Đối chiếu NS, SOA và bản ghi trực tiếp với hệ thống DNS công cộng.</p>
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 text-slate-900 font-medium text-sm">
-                  <FileSpreadsheet className="w-4 h-4 text-blue-700 shrink-0" />
-                  <span>Nhập xuất chuẩn BIND / CSV</span>
+                  <FileSpreadsheet className="w-4 h-4 text-blue-400 shrink-0" />
+                  <span>Nhập xuất BIND / CSV</span>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Kiểm tra cú pháp từng dòng trước khi nhập hàng loạt và xuất tệp .zone sẵn sàng triển khai.
-                </p>
+                <p className="text-xs text-slate-500 leading-relaxed">Kiểm tra cú pháp trước khi nhập hàng loạt và xuất tệp .zone.</p>
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 text-slate-900 font-medium text-sm">
-                  <ShieldCheck className="w-4 h-4 text-blue-700 shrink-0" />
-                  <span>Bảo vệ dữ liệu & 2FA TOTP</span>
+                  <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
+                  <span>Bảo mật & 2FA TOTP</span>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Phân tách dữ liệu theo tài khoản trên Firestore kèm xác thực hai yếu tố TOTP chuẩn RFC 6238.
-                </p>
+                <p className="text-xs text-slate-500 leading-relaxed">Dữ liệu phân tách theo UID, hỗ trợ xác thực hai yếu tố TOTP.</p>
               </div>
             </div>
           </section>
 
-          <section className="lg:col-span-5 bg-white border border-slate-200 rounded-lg p-5 sm:p-8 flex flex-col justify-center space-y-5 sm:space-y-6">
+          <section className="lg:col-span-5 bg-white border border-slate-200 p-5 sm:p-8 flex flex-col justify-center space-y-5 sm:space-y-6">
             <div className="space-y-2">
+              <p className="text-xs font-mono uppercase tracking-[0.16em] text-slate-500">SECURE ACCESS</p>
               <h2 className="text-xl font-semibold text-slate-900">Đăng nhập hệ thống</h2>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Sử dụng tài khoản Google đã xác minh để đồng bộ danh sách tên miền và cấu hình bản ghi của riêng bạn.
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Sử dụng tài khoản Google đã xác minh để đồng bộ cấu hình DNS của riêng bạn.
               </p>
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-xs text-red-700 leading-relaxed">
+              <div role="alert" className="p-3 bg-red-50 border border-red-200 text-xs text-red-300 leading-relaxed">
                 {error}
               </div>
             )}
@@ -110,19 +150,16 @@ export function LoginScreen() {
               type="button"
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 px-4 min-h-[44px] py-2.5 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60 rounded-md transition-colors whitespace-nowrap"
+              className="w-full flex items-center justify-center gap-3 px-4 min-h-[48px] py-2.5 text-sm font-semibold text-white bg-blue-700 hover:bg-blue-600 disabled:opacity-60 transition-colors whitespace-nowrap"
             >
               <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z"
-                />
+                <path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z" />
               </svg>
-              {loading ? 'Đang kết nối tài khoản...' : 'Đăng nhập bằng Google'}
+              {loading ? 'Đang chuyển tới Google...' : 'Tiếp tục với Google'}
             </button>
 
             <p className="text-xs text-slate-500 leading-relaxed">
-              Mọi vùng tên miền, bản ghi DNS và quy tắc chuyển tiếp được bảo vệ độc lập theo mã định danh người dùng trên Cloud Firestore.
+              Phiên đăng nhập được Firebase quản lý. Nếu tên miền Preview chưa được cấp quyền, hệ thống sẽ hiển thị hướng dẫn Authorized domains cụ thể.
             </p>
           </section>
         </div>
