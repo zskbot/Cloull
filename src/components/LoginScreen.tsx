@@ -3,19 +3,20 @@ import {
   getRedirectResult,
   signInWithPopup,
   signInWithRedirect,
+  type AuthProvider,
 } from 'firebase/auth';
-import { Globe, ShieldCheck, Activity, FileSpreadsheet } from 'lucide-react';
-import { auth, googleProvider } from '../lib/firebase';
+import { Github, Globe, ShieldCheck, Activity, FileSpreadsheet } from 'lucide-react';
+import { auth, googleProvider, githubProvider } from '../lib/firebase';
 
-function getAuthErrorMessage(error: unknown): string {
+function getAuthErrorMessage(error: unknown, providerName = 'nhà cung cấp'): string {
   const code = (error as { code?: string } | undefined)?.code || '';
   switch (code) {
     case 'auth/unauthorized-domain':
       return 'Tên miền hiện tại chưa được cho phép trong Firebase Authentication. Hãy thêm hostname của trang Preview vào mục Authorized domains.';
     case 'auth/operation-not-allowed':
-      return 'Đăng nhập Google chưa được bật trong Firebase Authentication.';
+      return `Đăng nhập ${providerName} chưa được bật trong Firebase Authentication. Cần bật nhà cung cấp này và cấu hình OAuth Client ID/Secret trong Firebase Console.`;
     case 'auth/popup-closed-by-user':
-      return 'Cửa sổ đăng nhập đã bị đóng trước khi hoàn tất.';
+      return `Cửa sổ đăng nhập ${providerName} đã bị đóng trước khi hoàn tất.`;
     case 'auth/popup-blocked':
       return 'Trình duyệt chặn cửa sổ bật lên. Hệ thống sẽ chuyển sang đăng nhập chuyển hướng.';
     case 'auth/network-request-failed':
@@ -25,12 +26,12 @@ function getAuthErrorMessage(error: unknown): string {
     case 'auth/web-storage-unsupported':
       return 'Trình duyệt đang chặn bộ nhớ phiên cần thiết cho đăng nhập. Hãy bật cookie và website data.';
     default:
-      return error instanceof Error ? error.message : 'Không thể đăng nhập bằng Google.';
+      return error instanceof Error ? error.message : `Không thể đăng nhập bằng ${providerName}.`;
   }
 }
 
 export function LoginScreen() {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,8 +44,8 @@ export function LoginScreen() {
     };
   }, []);
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
+  const handleProviderSignIn = async (provider: AuthProvider, providerName: string) => {
+    setLoading(providerName);
     setError(null);
     const isAppleMobile =
       /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
@@ -52,23 +53,23 @@ export function LoginScreen() {
 
     try {
       if (isAppleMobile) {
-        await signInWithRedirect(auth, googleProvider);
+        await signInWithRedirect(auth, provider);
         return;
       }
 
       try {
-        await signInWithPopup(auth, googleProvider);
+        await signInWithPopup(auth, provider);
       } catch (popupError) {
         const code = (popupError as { code?: string } | undefined)?.code;
         if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
-          await signInWithRedirect(auth, googleProvider);
+          await signInWithRedirect(auth, provider);
           return;
         }
         throw popupError;
       }
     } catch (signInError) {
-      setError(getAuthErrorMessage(signInError));
-      setLoading(false);
+      setError(getAuthErrorMessage(signInError, providerName));
+      setLoading(null);
     }
   };
 
@@ -135,7 +136,7 @@ export function LoginScreen() {
               <p className="text-xs font-mono uppercase tracking-[0.16em] text-slate-500">SECURE ACCESS</p>
               <h2 className="text-xl font-semibold text-slate-900">Đăng nhập hệ thống</h2>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Sử dụng tài khoản Google đã xác minh để đồng bộ cấu hình DNS của riêng bạn.
+                Đăng nhập an toàn bằng Google hoặc GitHub để đồng bộ cấu hình DNS của riêng bạn.
               </p>
             </div>
 
@@ -147,18 +148,31 @@ export function LoginScreen() {
 
             <button
               type="button"
-              onClick={handleGoogleSignIn}
-              disabled={loading}
+              onClick={() => handleProviderSignIn(googleProvider, 'Google')}
+              disabled={Boolean(loading)}
               className="w-full flex items-center justify-center gap-3 px-4 min-h-[48px] py-2.5 text-sm font-semibold text-white bg-blue-700 hover:bg-blue-600 disabled:opacity-60 transition-colors whitespace-nowrap"
             >
               <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z" />
               </svg>
-              {loading ? 'Đang chuyển tới Google...' : 'Tiếp tục với Google'}
+              {loading === 'Google' ? 'Đang chuyển tới Google...' : 'Tiếp tục với Google'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleProviderSignIn(githubProvider, 'GitHub')}
+              disabled={Boolean(loading)}
+              className="w-full flex items-center justify-center gap-3 px-4 min-h-[48px] py-2.5 text-sm font-semibold text-slate-100 bg-slate-900 border border-slate-700 hover:bg-slate-800 disabled:opacity-60 transition-colors whitespace-nowrap"
+            >
+              <Github className="w-4 h-4 shrink-0" aria-hidden="true" />
+              {loading === 'GitHub' ? 'Đang chuyển tới GitHub...' : 'Tiếp tục với GitHub'}
             </button>
 
             <p className="text-xs text-slate-500 leading-relaxed">
-              Phiên đăng nhập được Firebase quản lý. Nếu tên miền Preview chưa được cấp quyền, hệ thống sẽ hiển thị hướng dẫn Authorized domains cụ thể.
+              Phiên đăng nhập được Firebase quản lý. Nếu nhà cung cấp chưa bật hoặc tên miền Preview chưa được cấp quyền, hệ thống sẽ hiển thị lỗi cụ thể.
+            </p>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Cần dùng tài khoản OCodeJS? <a href="https://ocodejs.co/oauth/" target="_blank" rel="noreferrer" className="text-slate-200 underline underline-offset-4 hover:text-white">Mở cổng xác thực OCodeJS</a>.
             </p>
           </section>
         </div>
