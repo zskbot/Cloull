@@ -17,7 +17,8 @@ import { auth } from './lib/firebase';
 import type { Domain, UserProfile } from './types/dns';
 
 function MainWorkspace() {
-  const [authReady, setAuthReady] = useState(false);\n  const [authError, setAuthError] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [domains, setDomains] = useState<Domain[]>([]);
