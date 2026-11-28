@@ -1,0 +1,29 @@
+name: Runner Smoke Test
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner-smoke:
+    name: Verify GitHub-hosted runner allocation
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Confirm runner started
+        run: |
+          echo "RUNNER_SMOKE_OK"
+          echo "OS=$RUNNER_OS"
+          echo "ARCH=$RUNNER_ARCH"
+          test "$RUNNER_OS" = "Linux"
+      - name: Confirm checkout is available
+        uses: actions/checkout@v4
+      - name: Verify repository workspace
+        run: |
+          test -s package.json
+          test -s index.html
+          echo "REPOSITORY_WORKSPACE_OK"
