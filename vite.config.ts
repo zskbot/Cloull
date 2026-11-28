@@ -6,6 +6,9 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // Relative asset URLs work both on the project Pages URL (/Cloull/)
+    // and on a custom domain served from the origin root.
+    base: './',
     plugins: [
       react(),
       tailwindcss(),
