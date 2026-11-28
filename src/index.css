@@ -7,10 +7,15 @@
 }
 
 @layer base {
+  :root {
+    color-scheme: dark;
+    background: #080b10;
+  }
+
   html, body {
     font-family: var(--font-sans);
-    background-color: #f8fafc;
-    color: #0f172a;
+    background-color: #080b10;
+    color: #e7edf5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: clip;
@@ -23,6 +28,10 @@
     touch-action: manipulation;
   }
 
+  button, [role="button"], input, select, textarea {
+    border-radius: 0 !important;
+  }
+
   h1, h2, h3, h4, .font-display {
     font-family: var(--font-display);
     text-wrap: balance;
@@ -30,6 +39,42 @@
 
   .tabular-nums {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Dark system palette: keep the existing component layout and behavior intact. */
+@layer utilities {
+  .bg-white { background-color: #101720 !important; }
+  .bg-white\/95 { background-color: rgb(16 23 32 / 95%) !important; }
+  .bg-slate-50 { background-color: #080d13 !important; }
+  .bg-slate-100 { background-color: #111a25 !important; }
+  .bg-slate-200 { background-color: #1b2734 !important; }
+  .bg-slate-900 { background-color: #05080c !important; }
+
+  .text-slate-900 { color: #f1f5f9 !important; }
+  .text-slate-800 { color: #e2e8f0 !important; }
+  .text-slate-700 { color: #cbd5e1 !important; }
+  .text-slate-600 { color: #aebdce !important; }
+  .text-slate-500 { color: #91a0b2 !important; }
+  .text-slate-400 { color: #77879a !important; }
+
+  .border-slate-200 { border-color: #263342 !important; }
+  .border-slate-300 { border-color: #344456 !important; }
+
+  .bg-blue-50 { background-color: rgb(37 99 235 / 14%) !important; }
+  .text-blue-700 { color: #80adff !important; }
+  .bg-red-50 { background-color: rgb(239 68 68 / 12%) !important; }
+  .border-red-200 { border-color: rgb(248 113 113 / 35%) !important; }
+  .text-red-700 { color: #fca5a5 !important; }
+  .bg-emerald-50 { background-color: rgb(16 185 129 / 12%) !important; }
+  .text-emerald-700 { color: #6ee7b7 !important; }
+  .bg-amber-50 { background-color: rgb(245 158 11 / 12%) !important; }
+  .text-amber-700 { color: #fcd34d !important; }
+
+  button:focus-visible, a:focus-visible, input:focus-visible,
+  select:focus-visible, textarea:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
   }
 }
 
