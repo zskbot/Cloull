@@ -3,13 +3,12 @@ import {
   getRedirectResult,
   signInWithPopup,
   signInWithRedirect,
-  type AuthError,
 } from 'firebase/auth';
 import { Globe, ShieldCheck, Activity, FileSpreadsheet } from 'lucide-react';
 import { auth, googleProvider } from '../lib/firebase';
 
 function getAuthErrorMessage(error: unknown): string {
-  const code = (error as AuthError | undefined)?.code || '';
+  const code = (error as { code?: string } | undefined)?.code || '';
   switch (code) {
     case 'auth/unauthorized-domain':
       return 'Tên miền hiện tại chưa được cho phép trong Firebase Authentication. Hãy thêm hostname của trang Preview vào mục Authorized domains.';
@@ -60,7 +59,7 @@ export function LoginScreen() {
       try {
         await signInWithPopup(auth, googleProvider);
       } catch (popupError) {
-        const code = (popupError as AuthError | undefined)?.code;
+        const code = (popupError as { code?: string } | undefined)?.code;
         if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
           await signInWithRedirect(auth, googleProvider);
           return;
