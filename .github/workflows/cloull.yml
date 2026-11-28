@@ -38,5 +38,5 @@ jobs:
         run: |
           test -s dist/index.html
           test -d dist/assets
-          grep -Eq 'assets/.*\\.js' dist/index.html
+          grep -Eq 'assets/.*\.js' dist/index.html
           ! grep -q '/src/main.tsx' dist/index.html
