@@ -171,9 +171,6 @@ export function LoginScreen() {
             <p className="text-xs text-slate-500 leading-relaxed">
               Phiên đăng nhập được Firebase quản lý. Nếu nhà cung cấp chưa bật hoặc tên miền Preview chưa được cấp quyền, hệ thống sẽ hiển thị lỗi cụ thể.
             </p>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Cần dùng tài khoản OCodeJS? <a href="https://ocodejs.co/oauth/" target="_blank" rel="noreferrer" className="text-slate-200 underline underline-offset-4 hover:text-white">Mở cổng xác thực OCodeJS</a>.
-            </p>
           </section>
         </div>
       </main>
