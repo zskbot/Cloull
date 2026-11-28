@@ -18,6 +18,7 @@ import type { Domain, UserProfile } from './types/dns';
 
 function MainWorkspace() {
   const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [domains, setDomains] = useState<Domain[]>([]);
@@ -52,12 +53,26 @@ function MainWorkspace() {
   }, []);
 
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, async (nextUser) => {
+    const unsubAuth = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
       setAuthReady(true);
       if (nextUser) {
-        await ensureUserProfile(nextUser);
+        void ensureUserProfile(nextUser).catch((error: unknown) => {
+          console.error('Không thể khởi tạo hồ sơ Firebase:', error);
+          const raw = error instanceof Error ? error.message : String(error);
+          let detail = raw;
+          try {
+            const parsed = JSON.parse(raw) as { error?: string; operationType?: string; path?: string };
+            detail = [parsed.operationType, parsed.path, parsed.error].filter(Boolean).join(' · ');
+          } catch {
+            // Keep the original Firebase error when it is not structured.
+          }
+          setAuthError(
+            `Đăng nhập thành công nhưng Firestore không thể khởi tạo hồ sơ: ${detail}. Kiểm tra email_verified và quyền create tại users/{uid} trong Firestore Rules.`
+          );
+        });
       } else {
+        setAuthError(null);
         setProfile(null);
         setDomains([]);
         setDomainsLoading(false);
@@ -171,6 +186,12 @@ function MainWorkspace() {
             Thêm tên miền
           </button>
         </header>
+
+        {authError && (
+          <div role="alert" className="mx-3 mt-3 border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200">
+            {authError}
+          </div>
+        )}
 
         <main
           className={`@container flex-1 w-full max-w-7xl mx-auto ${
